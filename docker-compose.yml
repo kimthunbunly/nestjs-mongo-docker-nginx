@@ -1,0 +1,61 @@
+version: '3.9'
+services:
+  app:
+    container_name: marksix-app
+    build: .
+    restart: unless-stopped
+    networks:
+      - server-network
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - MONGODB_USER=$MONGODB_USER
+      - MONGODB_PASSWORD=$MONGODB_PASSWORD
+      - MONGODB_HOST=$MONGODB_HOST
+      - MONGODB_PORT=$MONGODB_PORT
+      - MONGODB_NAME=$MONGODB_NAME
+      - JWT_SECRET=$JWT_SECRET
+
+  nginx:
+    container_name: marksix-nginx
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    networks:
+      - server-network
+    depends_on:
+      - mongodb
+    volumes:
+      - ./nginx/log:/usr/app/log/nginx
+      - ./nginx:/etc/nginx/conf.d
+      - ./nginx/letsencrypt:/etc/letsencrypt
+
+  mongodb:
+    image: mongo:5.0.0
+    container_name: marksix-mongodb
+    volumes:
+      - ./mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=$MONGODB_USER
+      - MONGO_INITDB_ROOT_PASSWORD=$MONGODB_PASSWORD
+    networks:
+      - server-network
+    ports:
+      - 27017:27017
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  server-network:
